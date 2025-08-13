@@ -152,8 +152,60 @@ class CLITutor:
         elif choice == "reset":
             self._show_reset_menu()
         else:
-            self.current_plugin = self.plugin_manager.load_plugin(choice)
-            self.current_plugin.reset()  # This now resets to first incomplete task
+            # Check if the selected plugin is already completed
+            plugin = self.plugin_manager.load_plugin(choice)
+            progress_info = self.progress_tracker.get_plugin_progress(choice)
+            
+            if progress_info and progress_info["is_completed"]:
+                # Plugin is already completed, ask user if they want to reset
+                self._print_section_separator(f"🎯 {choice.upper()} Already Completed", "bright_green")
+                
+                completion_message = (
+                    f"[bold green]Great news![/bold green]\n\n"
+                    f"You've already completed all tasks for the "
+                    f"[bold cyan]'{choice}'[/bold cyan] command.\n\n"
+                    f"[dim]Progress: {progress_info['completed_tasks']}/{progress_info['total_tasks']} tasks completed[/dim]"
+                )
+                
+                self.console.print(Panel(
+                    completion_message,
+                    title="✅ Command Mastered",
+                    title_align="center",
+                    border_style="green",
+                    padding=(2, 4)
+                ))
+                
+                self.console.print()
+                reset_choice = Confirm.ask(
+                    "[yellow]Would you like to reset your progress and start over?",
+                    default=False
+                )
+                
+                if reset_choice:
+                    # Reset progress and start fresh
+                    self.progress_tracker.reset_plugin_progress(choice)
+                    plugin.reset_progress()
+                    plugin.reset()
+                    
+                    self.console.print(Panel.fit(
+                        f"[green]✅ Progress for '{choice}' has been reset. Starting fresh![/green]",
+                        border_style="green"
+                    ))
+                    self.console.print()
+                    
+                    self.current_plugin = plugin
+                else:
+                    # User chose not to reset, return to menu
+                    self.console.print(Panel.fit(
+                        "[dim]Returning to main menu...[/dim]",
+                        border_style="dim"
+                    ))
+                    self.console.print()
+                    return
+            else:
+                # Plugin is not completed, proceed normally
+                self.current_plugin = plugin
+                self.current_plugin.reset()  # This now resets to first incomplete task
     
     def _run_current_session(self):
         """Run the learning session for current plugin."""
